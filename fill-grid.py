@@ -14,7 +14,7 @@ def preprocess_words(filepath, word_length):
     return letter_data, all_words
 
 letter_data, all_words = preprocess_words("four_letter_words.csv", 4)
-# print(letter_data[3]["A"])
+print(letter_data[0]["A"].intersection(letter_data[1]["H"]))
 
 def print_grid(grid):
     if not grid or not grid[0]:
@@ -39,21 +39,39 @@ def print_grid(grid):
         print()
     print_horizontal_line()
 
+def backtrack(grid, letter_data, word_length, row, counter):
+    if row >= word_length:
+        print_grid(grid)
+        print(counter)
+        return True
+    for iteration in range(100):
+        random_word = random.choice(all_words)
+        # random_word = "HELP"
+        valid = True
+        for i in range(word_length):
+            grid[row][i] = random_word[i]
+            if(len(get_intersection([row[i] for row in grid], letter_data, row+1)) == 0):
+                valid = False
+        if valid:
+            # print_grid(grid)s
+            backtrack(grid, letter_data, word_length, row + 1, iteration)
+        for i in range(word_length):
+            grid[row][i] = ""
+
+def get_intersection(letters, letter_data, length):
+    intersect = set(letter_data[0][letters[0]])
+    for i in range(length):
+        intersect = intersect.intersection(letter_data[i][letters[i]])
+    # print("intersection" + str(list(intersect)) + "for letters" + str(lettesrs))
+    return list(intersect)
+
 for word in all_words[:3]:
     grid = [[" " for _ in range(4)] for _ in range(4)]
     for i in range(4):
         grid[0][i] = word[i]
     print_grid(grid)
-
-def backtrack(grid, letter_data, word_length, row):
-    if row == word_length:
-        return True
-    random_word = random.choice(all_words)
-    for i in range(word_length):
-        grid[row][i] = random_word[i]
-        backtrack(grid, letter_data, word_length, row + 1)
-        grid[row][i] = ""
-
-backtrack(grid, letter_data, 4, 0)
-print_grid(grid)
+    backtrack(grid, letter_data, 4, 1, 0)
+    # print_grid(grid)
+# backtrack(grid, letter_data, 4, 0)
+# print_grid(grid)
 
