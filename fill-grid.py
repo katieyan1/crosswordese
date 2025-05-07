@@ -132,7 +132,7 @@ def run_step_count(word_length: int, letter_data: List[Dict[str, Set[str]]], all
             grid[0][i] = word[i]
         for i in range(iters):
         # backtrack to find number of steps required to fill grid
-            print(i + " " + word)
+            print(str(i) + " " + word)
             backtrack_step_count(grid, letter_data, word_length, 1, [], res=res)
     with open(filepath, 'w', newline='') as f:
         writer = csv.writer(f)
