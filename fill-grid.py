@@ -84,7 +84,6 @@ def backtrack_sol_count(grid: List[List[str]], letter_data: List[Dict[str, Set[s
             if(len(get_intersection([row[i] for row in grid], letter_data, row+1)) == 0):
                 valid = False
         if valid:
-            # If solution found in recursive call, return True to stop further exploration
             solutions_count = backtrack_sol_count(grid, letter_data, word_length, row + 1, solutions_count)
         for i in range(word_length):
             grid[row][i] = ""
@@ -140,9 +139,87 @@ def run_step_count(word_length: int, letter_data: List[Dict[str, Set[str]]], all
         for word, count in res.items():
             writer.writerow([word, count/iters])
 
+def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]], word_length: int, solutions_count: int, remaining_words: Dict[Tuple[int, int], Set[str]]) -> int:
+    if len(remaining_words) == 0:
+        solutions_count += 1
+        return solutions_count
+    
+    # get answer with least remaining words
+    answer = min(remaining_words, key=lambda x: len(remaining_words[x]))
+    if len(remaining_words[answer]) == 0:
+        return solutions_count  # No valid words for this position
+        
+    beg_remain = remaining_words[answer].copy()  # Make a copy to avoid modifying while iterating
+    before = grid.copy()
+    while len(beg_remain) > 0:
+        chosen_word = beg_remain.pop()
+        # Place word
+        if answer[1] == 0:  # Across
+            for i in range(word_length):
+                grid[answer[0]][i] = chosen_word[i]
+        else:  # Down
+            for i in range(word_length):
+                grid[i][answer[0]] = chosen_word[i]
+                
+        print_grid(grid)
+        # Store current state and remove current position
+        store = remaining_words[answer].copy()
+        del remaining_words[answer]
+        
+        # Filter remaining words
+        filtered = filter_words(grid, letter_data, word_length, remaining_words)
+        
+        solutions_count = backtrack_MRV(grid, letter_data, word_length, solutions_count, filtered)
+        
+        # Restore state
+        remaining_words[answer] = store.copy()
+        if answer[1] == 0:  # Across
+            for i in range(word_length):
+                grid[answer[0]][i] = before[answer[0]][i]
+        else:  # Down
+            for i in range(word_length):
+                grid[i][answer[0]] = before[i][answer[0]]
+                
+    return solutions_count
+
+def run_MRV(word_length: int, letter_data: List[Dict[str, Set[str]]], all_words: List[str], filepath: str) -> None:
+    with open(filepath, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Starting Word','Solutions Count'])
+        for word in all_words[4:5]:
+            remaining_words = {}
+            grid = [[" " for _ in range(word_length)] for _ in range(word_length)]
+            for i in range(word_length):
+                grid[0][i] = word[i]
+            for i in range(word_length):
+                for j in range(2):
+                    remaining_words[(i, j)] = set(all_words)
+            del remaining_words[(0, 0)] # 1A
+            remaining_words = filter_words(grid, letter_data, word_length, remaining_words) 
+            solutions = backtrack_MRV(grid, letter_data, word_length, 0, remaining_words)
+            print(word + " " + str(solutions))
+            # writer.writerow([word, solutions])
+
+def filter_words(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]], word_length: int, remaining_words: Dict[Tuple[int, int], Set[str]]) ->  Dict[Tuple[int, int], Set[str]]:
+    # iterate through rows of grid
+    columns = [[] for _ in range(word_length)]
+    for i in range(word_length):
+        for j in range(word_length):
+            letter = grid[i][j]
+            columns[j].append(letter)
+            if letter != " " and (i, 0) in remaining_words:
+                remaining_words[(i, 0)] = remaining_words[(i, 0)].intersection(letter_data[j][letter])
+    # iterate through columns of grid
+    for i in range(word_length):
+        for j in range(word_length):
+            letter = columns[i][j]
+            if letter != " " and (i, 1) in remaining_words:
+                remaining_words[(i, 1)] = remaining_words[(i, 1)].intersection(letter_data[j][letter])
+    return remaining_words
+
 if __name__ == "__main__":
     letter_data, all_words = preprocess_words("four_letter_words.csv", 4)
     # write_step_counts("step_counts.csv", 4, letter_data, all_words)
     # write_solutions_count("solutions_count.csv", 4, letter_data, all_words)
-    run_step_count(4, letter_data, all_words, 5, "run_step_counts.csv")
-
+    # run_step_count(4, letter_data, all_words, 5, "run_step_counts.csv")
+    run_MRV(4, letter_data, all_words, "run_MRV.csv")
