@@ -2,6 +2,7 @@ from collections import defaultdict
 import random
 import csv
 import copy
+import time
 from typing import List, Set, Dict, Tuple, Optional
 
 def preprocess_words(filepath: str, word_length: int) -> Tuple[List[Dict[str, Set[str]]], List[str]]:
@@ -142,13 +143,13 @@ def run_step_count(word_length: int, letter_data: List[Dict[str, Set[str]]], all
 set_of_sols = set()
 def list_to_string(grid: List[List[str]]) -> str:
     return ''.join([''.join(row) for row in grid])
-def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]], word_length: int, solutions_count: int, remaining_words: Dict[Tuple[int, int], Set[str]]) -> int:
+def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]], word_length: int, remaining_words: Dict[Tuple[int, int], Set[str]], start_time: float) -> int:
     if len(remaining_words) == 0:
-        # print_grid(grid)
-        # print("solutions count " + str(solutions_count))
         set_of_sols.add(list_to_string(grid))
         return 1  # Return 1 for each solution found
     
+    if time.time() - start_time > 10:
+        return -1
     # get answer with least remaining words
     answer = min(remaining_words, key=lambda x: len(remaining_words[x]))
     if len(remaining_words[answer]) == 0:
@@ -176,8 +177,10 @@ def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]],
         filtered = filter_words(grid, letter_data, word_length, remaining_words)
         
         # Add solutions from this branch
-        total_solutions += backtrack_MRV(grid, letter_data, word_length, solutions_count, filtered)
-        # print("total solutions " + str(total_solutions))
+        new_sols = backtrack_MRV(grid, letter_data, word_length, filtered, start_time)
+        if new_sols == -1:
+            return -1
+        total_solutions += new_sols
         # Restore state
         remaining_words = copy.deepcopy(store)
         if answer[1] == 0:  # Across
@@ -186,7 +189,6 @@ def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]],
         else:  # Down
             for i in range(word_length):
                 grid[i][answer[0]] = before[i][answer[0]]
-    # print("set of sols len" + str(len(set_of_sols)))
     return total_solutions  # Return total solutions from this branch
 
 def run_MRV(word_length: int, letter_data: List[Dict[str, Set[str]]], all_words: List[str], filepath: str) -> None:
@@ -194,6 +196,7 @@ def run_MRV(word_length: int, letter_data: List[Dict[str, Set[str]]], all_words:
         writer = csv.writer(f)
         writer.writerow(['Starting Word','Solutions Count'])
         for word in all_words[5654:5655]:
+            start_time = time.time()
             remaining_words = {}
             grid = [[" " for _ in range(word_length)] for _ in range(word_length)]
             for i in range(word_length):
@@ -203,9 +206,12 @@ def run_MRV(word_length: int, letter_data: List[Dict[str, Set[str]]], all_words:
                     remaining_words[(i, j)] = set(all_words)
             del remaining_words[(0, 0)] # 1A
             remaining_words = filter_words(grid, letter_data, word_length, remaining_words) 
-            solutions = backtrack_MRV(grid, letter_data, word_length, 0, remaining_words)
+            solutions = backtrack_MRV(grid, letter_data, word_length, remaining_words, start_time)
+            solutions = len(set_of_sols)
             print(word + " " + str(solutions))
-            # writer.writerow([word, solutions])
+            writer.writerow([word, solutions])
+            end_time = time.time()
+            print(f"Total time taken: {end_time - start_time:.2f} seconds")
 
 def filter_words(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]], word_length: int, remaining_words: Dict[Tuple[int, int], Set[str]]) ->  Dict[Tuple[int, int], Set[str]]:
     # iterate through rows of grid
