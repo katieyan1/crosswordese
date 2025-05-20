@@ -1,6 +1,7 @@
 from collections import defaultdict
 import random
 import csv
+import copy
 from typing import List, Set, Dict, Tuple, Optional
 
 def preprocess_words(filepath: str, word_length: int) -> Tuple[List[Dict[str, Set[str]]], List[str]]:
@@ -138,19 +139,25 @@ def run_step_count(word_length: int, letter_data: List[Dict[str, Set[str]]], all
         writer.writerow(['Starting Word','Step Count'])
         for word, count in res.items():
             writer.writerow([word, count/iters])
-
+set_of_sols = set()
+def list_to_string(grid: List[List[str]]) -> str:
+    return ''.join([''.join(row) for row in grid])
 def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]], word_length: int, solutions_count: int, remaining_words: Dict[Tuple[int, int], Set[str]]) -> int:
     if len(remaining_words) == 0:
-        solutions_count += 1
-        return solutions_count
+        # print_grid(grid)
+        # print("solutions count " + str(solutions_count))
+        set_of_sols.add(list_to_string(grid))
+        return 1  # Return 1 for each solution found
     
     # get answer with least remaining words
     answer = min(remaining_words, key=lambda x: len(remaining_words[x]))
     if len(remaining_words[answer]) == 0:
-        return solutions_count  # No valid words for this position
+        return 0  # No valid words for this position
         
-    beg_remain = remaining_words[answer].copy()  # Make a copy to avoid modifying while iterating
-    before = grid.copy()
+    beg_remain = copy.deepcopy(remaining_words[answer])  # Make a copy to avoid modifying while iterating
+    before = [row[:] for row in grid]
+    total_solutions = 0  # Track solutions from this branch
+    
     while len(beg_remain) > 0:
         chosen_word = beg_remain.pop()
         # Place word
@@ -161,32 +168,32 @@ def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]],
             for i in range(word_length):
                 grid[i][answer[0]] = chosen_word[i]
                 
-        print_grid(grid)
         # Store current state and remove current position
-        store = remaining_words[answer].copy()
+        store = copy.deepcopy(remaining_words)
         del remaining_words[answer]
         
         # Filter remaining words
         filtered = filter_words(grid, letter_data, word_length, remaining_words)
         
-        solutions_count = backtrack_MRV(grid, letter_data, word_length, solutions_count, filtered)
-        
+        # Add solutions from this branch
+        total_solutions += backtrack_MRV(grid, letter_data, word_length, solutions_count, filtered)
+        # print("total solutions " + str(total_solutions))
         # Restore state
-        remaining_words[answer] = store.copy()
+        remaining_words = copy.deepcopy(store)
         if answer[1] == 0:  # Across
             for i in range(word_length):
                 grid[answer[0]][i] = before[answer[0]][i]
         else:  # Down
             for i in range(word_length):
                 grid[i][answer[0]] = before[i][answer[0]]
-                
-    return solutions_count
+    # print("set of sols len" + str(len(set_of_sols)))
+    return total_solutions  # Return total solutions from this branch
 
 def run_MRV(word_length: int, letter_data: List[Dict[str, Set[str]]], all_words: List[str], filepath: str) -> None:
     with open(filepath, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['Starting Word','Solutions Count'])
-        for word in all_words[4:5]:
+        for word in all_words[5654:5655]:
             remaining_words = {}
             grid = [[" " for _ in range(word_length)] for _ in range(word_length)]
             for i in range(word_length):
