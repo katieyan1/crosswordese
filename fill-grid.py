@@ -143,13 +143,13 @@ def run_step_count(word_length: int, letter_data: List[Dict[str, Set[str]]], all
 set_of_sols = set()
 def list_to_string(grid: List[List[str]]) -> str:
     return ''.join([''.join(row) for row in grid])
-def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]], word_length: int, remaining_words: Dict[Tuple[int, int], Set[str]], start_time: float) -> int:
+def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]], word_length: int, remaining_words: Dict[Tuple[int, int], Set[str]], start_time: float, cache: Dict[str, Set[str]]) -> int:
     if len(remaining_words) == 0:
         set_of_sols.add(list_to_string(grid))
         return 1  # Return 1 for each solution found
     
-    if time.time() - start_time > 10:
-        return -1
+    # if time.time() - start_time > 10:
+    #     return -1
     # get answer with least remaining words
     answer = min(remaining_words, key=lambda x: len(remaining_words[x]))
     if len(remaining_words[answer]) == 0:
@@ -174,10 +174,10 @@ def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]],
         del remaining_words[answer]
         
         # Filter remaining words
-        filtered = filter_words(grid, letter_data, word_length, remaining_words)
+        filtered = filter_words(grid, letter_data, word_length, remaining_words, cache)
         
         # Add solutions from this branch
-        new_sols = backtrack_MRV(grid, letter_data, word_length, filtered, start_time)
+        new_sols = backtrack_MRV(grid, letter_data, word_length, filtered, start_time, cache)
         if new_sols == -1:
             return -1
         total_solutions += new_sols
@@ -192,6 +192,7 @@ def backtrack_MRV(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]],
     return total_solutions  # Return total solutions from this branch
 
 def run_MRV(word_length: int, letter_data: List[Dict[str, Set[str]]], all_words: List[str], filepath: str) -> None:
+    cache = {}
     with open(filepath, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['Starting Word','Solutions Count'])
@@ -205,29 +206,47 @@ def run_MRV(word_length: int, letter_data: List[Dict[str, Set[str]]], all_words:
                 for j in range(2):
                     remaining_words[(i, j)] = set(all_words)
             del remaining_words[(0, 0)] # 1A
-            remaining_words = filter_words(grid, letter_data, word_length, remaining_words) 
-            solutions = backtrack_MRV(grid, letter_data, word_length, remaining_words, start_time)
+            remaining_words = filter_words(grid, letter_data, word_length, remaining_words, cache) 
+            solutions = backtrack_MRV(grid, letter_data, word_length, remaining_words, start_time, cache)
             solutions = len(set_of_sols)
             print(word + " " + str(solutions))
             writer.writerow([word, solutions])
             end_time = time.time()
             print(f"Total time taken: {end_time - start_time:.2f} seconds")
 
-def filter_words(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]], word_length: int, remaining_words: Dict[Tuple[int, int], Set[str]]) ->  Dict[Tuple[int, int], Set[str]]:
+def filter_words(grid: List[List[str]], letter_data: List[Dict[str, Set[str]]], word_length: int, remaining_words: Dict[Tuple[int, int], Set[str]], cache: Dict[str, Set[str]]) ->  Dict[Tuple[int, int], Set[str]]:
     # iterate through rows of grid
+    # print_grid(grid)
     columns = [[] for _ in range(word_length)]
     for i in range(word_length):
-        for j in range(word_length):
-            letter = grid[i][j]
-            columns[j].append(letter)
-            if letter != " " and (i, 0) in remaining_words:
-                remaining_words[(i, 0)] = remaining_words[(i, 0)].intersection(letter_data[j][letter])
+        cache_key = "".join(grid[i]) + "."
+        # print("row " + cache_key)
+        if cache_key in cache and (i, 0) in remaining_words:
+            remaining_words[(i, 0)] = cache[cache_key]
+            for j in range(word_length):
+                letter = grid[i][j]
+                columns[j].append(letter)
+        else:
+            for j in range(word_length):
+                letter = grid[i][j]
+                columns[j].append(letter)
+                if letter != " " and (i, 0) in remaining_words:
+                    remaining_words[(i, 0)] = remaining_words[(i, 0)].intersection(letter_data[j][letter])
+            if (i, 0) in remaining_words:
+                cache[cache_key] = remaining_words[(i, 0)]
     # iterate through columns of grid
     for i in range(word_length):
-        for j in range(word_length):
-            letter = columns[i][j]
-            if letter != " " and (i, 1) in remaining_words:
-                remaining_words[(i, 1)] = remaining_words[(i, 1)].intersection(letter_data[j][letter])
+        cache_key = "".join(columns[i]) + "."
+        # print("col " + cache_key)
+        if cache_key in cache and (i, 1) in remaining_words:
+            remaining_words[(i, 1)] = cache[cache_key]
+        else:
+            for j in range(word_length):
+                letter = columns[i][j]
+                if letter != " " and (i, 1) in remaining_words:
+                    remaining_words[(i, 1)] = remaining_words[(i, 1)].intersection(letter_data[j][letter])
+            if (i, 1) in remaining_words:
+                cache[cache_key] = remaining_words[(i, 1)]
     return remaining_words
 
 if __name__ == "__main__":
